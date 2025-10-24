@@ -211,7 +211,7 @@
             max-width: 100%;
             max-height: 300px;
             margin-bottom: 15px;
-            display: none;
+            border-radius: var(--border-radius);
         }
 
         .option {
@@ -1140,6 +1140,9 @@
                     const imagePreview = container.querySelector('.question-image-preview');
                     if (imagePreview.style.display !== 'none') {
                         questionData.image = imagePreview.src;
+                    } else {
+                        // If no image is uploaded but type is image, create a placeholder
+                        questionData.image = '';
                     }
                 }
                 
@@ -1298,13 +1301,20 @@
             container.innerHTML = '';
             
             currentQuestions.forEach((question, index) => {
+                let questionContent = '';
+                
+                if (question.type === 'text') {
+                    questionContent = `<p>${question.text}</p>`;
+                } else if (question.type === 'image' && question.image) {
+                    questionContent = `<img src="${question.image}" alt="Question image" class="question-image">`;
+                } else {
+                    questionContent = '<p>[Image question - No image uploaded]</p>';
+                }
+                
                 const questionHTML = `
                     <div class="card">
                         <div class="question-number">Question ${index + 1}</div>
-                        ${question.type === 'text' 
-                            ? `<p>${question.text}</p>` 
-                            : `<img src="${question.image}" alt="Question image" class="question-image">`
-                        }
+                        ${questionContent}
                         <div class="form-group">
                             ${question.options.map((option, optionIndex) => `
                                 <div class="option">
@@ -1395,13 +1405,20 @@
                 const userAnswer = userAnswers[index];
                 const isCorrect = userAnswer === question.correctAnswer;
                 
+                let questionContent = '';
+                
+                if (question.type === 'text') {
+                    questionContent = `<p>${question.text}</p>`;
+                } else if (question.type === 'image' && question.image) {
+                    questionContent = `<img src="${question.image}" alt="Question image" class="question-image">`;
+                } else {
+                    questionContent = '<p>[Image question - No image uploaded]</p>';
+                }
+                
                 const questionHTML = `
                     <div class="card ${isCorrect ? 'correct-answer' : 'incorrect-answer'}">
                         <div class="question-number">Question ${index + 1}</div>
-                        ${question.type === 'text' 
-                            ? `<p>${question.text}</p>` 
-                            : `<img src="${question.image}" alt="Question image" class="question-image">`
-                        }
+                        ${questionContent}
                         <div class="student-answer">
                             <strong>Your answer:</strong> 
                             ${userAnswer !== undefined ? question.options[userAnswer] : 'Not answered'}
@@ -1535,15 +1552,24 @@
                     <div class="exam-info">Score: ${result.score}/${result.totalQuestions}</div>
                     <div class="exam-info">Percentage: ${Math.round((result.score / result.totalQuestions) * 100)}%</div>
                     <div class="exam-info">Submitted: ${new Date(result.submittedAt).toLocaleDateString()}</div>
-                    <button class="btn btn-primary view-result-btn" data-result-id="${result.id}">View Details</button>
                 `;
                 resultsList.appendChild(resultCard);
-            });
-            
-            document.querySelectorAll('.view-result-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const resultId = this.getAttribute('data-result-id');
-                    viewResultDetails(resultId);
+                
+                // Add click event to show results when clicking on the result card
+                resultCard.addEventListener('click', function() {
+                    viewResultDetails(result.id);
+                });
+                resultCard.style.cursor = 'pointer';
+                resultCard.style.transition = 'all 0.3s ease';
+                
+                resultCard.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.15)';
+                });
+                
+                resultCard.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = 'var(--shadow)';
                 });
             });
         }
