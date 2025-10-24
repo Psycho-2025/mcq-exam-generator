@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCQ Exam Generator</title>
+    <!-- KaTeX for mathematical equations -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     <style>
         :root {
             --primary: #4361ee;
@@ -191,6 +195,7 @@
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
 
         .type-btn {
@@ -398,6 +403,45 @@
             z-index: 1000;
         }
 
+        /* Math equation styling */
+        .math-equation {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .katex-display {
+            margin: 10px 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .math-preview {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            border: 1px solid #ddd;
+        }
+
+        .math-help {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .math-help ul {
+            margin-left: 20px;
+        }
+
+        .math-help li {
+            margin-bottom: 5px;
+        }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -420,6 +464,10 @@
 
             .tab {
                 text-align: center;
+            }
+
+            .question-type {
+                flex-direction: column;
             }
         }
     </style>
@@ -803,6 +851,21 @@
             });
         });
 
+        // Math rendering function
+        function renderMath(element) {
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(element, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
+        }
+
         // Authentication functions
         function adminLogin() {
             const username = document.getElementById('adminUsername').value;
@@ -978,17 +1041,40 @@
                     </div>
                     <div class="question-type">
                         <button class="type-btn active" data-type="text">Text</button>
+                        <button class="type-btn" data-type="math">Math Equation</button>
                         <button class="type-btn" data-type="image">Image</button>
                     </div>
+                    
                     <div class="form-group question-text-container">
                         <label>Question Text</label>
-                        <textarea class="question-text" placeholder="Enter your question"></textarea>
+                        <textarea class="question-text" placeholder="Enter your question text"></textarea>
                     </div>
+                    
+                    <div class="form-group question-math-container hidden">
+                        <label>Math Equation</label>
+                        <div class="math-help">
+                            <strong>Math Syntax Help:</strong>
+                            <ul>
+                                <li>For fractions: <code>\\frac{a}{b}</code></li>
+                                <li>For square root: <code>\\sqrt{x}</code></li>
+                                <li>For exponents: <code>x^{2}</code></li>
+                                <li>For Greek letters: <code>\\alpha, \\beta, \\gamma</code></li>
+                                <li>Use <code>$...$</code> for inline math and <code>$$...$$</code> for display math</li>
+                            </ul>
+                        </div>
+                        <textarea class="question-math" placeholder="Enter LaTeX math equation (e.g., $E = mc^2$ or $$\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$)"></textarea>
+                        <div class="math-preview">
+                            <strong>Preview:</strong>
+                            <div class="math-preview-content" id="math-preview-${questionCount}"></div>
+                        </div>
+                    </div>
+                    
                     <div class="form-group question-image-container hidden">
                         <label>Question Image</label>
                         <input type="file" class="question-image-input" accept="image/*">
                         <img class="question-image-preview" src="" alt="Question image preview" style="max-width: 100%; display: none;">
                     </div>
+                    
                     <div class="form-group">
                         <label>Options</label>
                         <div class="option">
@@ -1025,14 +1111,27 @@
                     newQuestion.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     
+                    newQuestion.querySelector('.question-text-container').classList.add('hidden');
+                    newQuestion.querySelector('.question-math-container').classList.add('hidden');
+                    newQuestion.querySelector('.question-image-container').classList.add('hidden');
+                    
                     if (type === 'text') {
                         newQuestion.querySelector('.question-text-container').classList.remove('hidden');
-                        newQuestion.querySelector('.question-image-container').classList.add('hidden');
+                    } else if (type === 'math') {
+                        newQuestion.querySelector('.question-math-container').classList.remove('hidden');
                     } else {
-                        newQuestion.querySelector('.question-text-container').classList.add('hidden');
                         newQuestion.querySelector('.question-image-container').classList.remove('hidden');
                     }
                 });
+            });
+            
+            // Math equation preview
+            const mathTextarea = newQuestion.querySelector('.question-math');
+            const mathPreview = newQuestion.querySelector('.math-preview-content');
+            
+            mathTextarea.addEventListener('input', function() {
+                mathPreview.innerHTML = this.value;
+                renderMath(mathPreview);
             });
             
             const imageInput = newQuestion.querySelector('.question-image-input');
@@ -1136,12 +1235,13 @@
                 
                 if (type === 'text') {
                     questionData.text = container.querySelector('.question-text').value;
+                } else if (type === 'math') {
+                    questionData.math = container.querySelector('.question-math').value;
                 } else {
                     const imagePreview = container.querySelector('.question-image-preview');
                     if (imagePreview.style.display !== 'none') {
                         questionData.image = imagePreview.src;
                     } else {
-                        // If no image is uploaded but type is image, create a placeholder
                         questionData.image = '';
                     }
                 }
@@ -1305,10 +1405,16 @@
                 
                 if (question.type === 'text') {
                     questionContent = `<p>${question.text}</p>`;
+                } else if (question.type === 'math' && question.math) {
+                    questionContent = `
+                        <div class="math-equation">
+                            <div class="math-content">${question.math}</div>
+                        </div>
+                    `;
                 } else if (question.type === 'image' && question.image) {
                     questionContent = `<img src="${question.image}" alt="Question image" class="question-image">`;
                 } else {
-                    questionContent = '<p>[Image question - No image uploaded]</p>';
+                    questionContent = '<p>[No question content]</p>';
                 }
                 
                 const questionHTML = `
@@ -1334,6 +1440,9 @@
                     });
                 });
             });
+            
+            // Render math equations after adding to DOM
+            renderMath(container);
         }
 
         function submitExam() {
@@ -1409,10 +1518,16 @@
                 
                 if (question.type === 'text') {
                     questionContent = `<p>${question.text}</p>`;
+                } else if (question.type === 'math' && question.math) {
+                    questionContent = `
+                        <div class="math-equation">
+                            <div class="math-content">${question.math}</div>
+                        </div>
+                    `;
                 } else if (question.type === 'image' && question.image) {
                     questionContent = `<img src="${question.image}" alt="Question image" class="question-image">`;
                 } else {
-                    questionContent = '<p>[Image question - No image uploaded]</p>';
+                    questionContent = '<p>[No question content]</p>';
                 }
                 
                 const questionHTML = `
@@ -1431,6 +1546,9 @@
                 `;
                 container.insertAdjacentHTML('beforeend', questionHTML);
             });
+            
+            // Render math equations after adding to DOM
+            renderMath(container);
         }
 
         function backToDashboard() {
