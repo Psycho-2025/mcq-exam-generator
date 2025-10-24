@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCQ Exam Generator</title>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <style>
         :root {
             --primary: #4361ee;
@@ -321,21 +319,6 @@
             font-weight: bold;
         }
 
-        .loading {
-            text-align: center;
-            padding: 20px;
-        }
-
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: var(--primary);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-
         .timer {
             position: fixed;
             top: 20px;
@@ -413,12 +396,6 @@
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
             z-index: 1000;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
         }
 
         @keyframes pulse {
@@ -638,12 +615,6 @@
                 <button id="backToDashboardBtn" class="btn btn-primary">Back to Dashboard</button>
             </div>
         </div>
-
-        <!-- Loading Indicator -->
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p>Loading...</p>
-        </div>
     </div>
 
     <!-- Confirmation Message -->
@@ -657,20 +628,103 @@
     <div id="overlay" class="overlay hidden"></div>
 
     <script>
-        // Firebase configuration - YOU WILL REPLACE THIS WITH YOUR OWN CONFIG
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY_HERE",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
+        // Simple localStorage-based database simulation
+        const Database = {
+            // Initialize with sample data if empty
+            init() {
+                if (!localStorage.getItem('students')) {
+                    localStorage.setItem('students', JSON.stringify({}));
+                }
+                if (!localStorage.getItem('exams')) {
+                    localStorage.setItem('exams', JSON.stringify({}));
+                }
+                if (!localStorage.getItem('results')) {
+                    localStorage.setItem('results', JSON.stringify({}));
+                }
+            },
+
+            // Student operations
+            addStudent(studentData) {
+                const students = JSON.parse(localStorage.getItem('students'));
+                const studentId = 'student_' + Date.now();
+                students[studentId] = {
+                    ...studentData,
+                    id: studentId,
+                    createdAt: Date.now()
+                };
+                localStorage.setItem('students', JSON.stringify(students));
+                return studentId;
+            },
+
+            getStudents() {
+                return JSON.parse(localStorage.getItem('students'));
+            },
+
+            deleteStudent(studentId) {
+                const students = JSON.parse(localStorage.getItem('students'));
+                delete students[studentId];
+                localStorage.setItem('students', JSON.stringify(students));
+            },
+
+            // Exam operations
+            addExam(examData) {
+                const exams = JSON.parse(localStorage.getItem('exams'));
+                const examId = 'exam_' + Date.now();
+                exams[examId] = {
+                    ...examData,
+                    id: examId,
+                    createdAt: Date.now()
+                };
+                localStorage.setItem('exams', JSON.stringify(exams));
+                return examId;
+            },
+
+            getExams() {
+                return JSON.parse(localStorage.getItem('exams'));
+            },
+
+            getExam(examId) {
+                const exams = JSON.parse(localStorage.getItem('exams'));
+                return exams[examId];
+            },
+
+            deleteExam(examId) {
+                const exams = JSON.parse(localStorage.getItem('exams'));
+                delete exams[examId];
+                localStorage.setItem('exams', JSON.stringify(exams));
+            },
+
+            // Result operations
+            addResult(resultData) {
+                const results = JSON.parse(localStorage.getItem('results'));
+                const resultId = 'result_' + Date.now();
+                results[resultId] = {
+                    ...resultData,
+                    id: resultId,
+                    submittedAt: Date.now()
+                };
+                localStorage.setItem('results', JSON.stringify(results));
+                return resultId;
+            },
+
+            getResults() {
+                return JSON.parse(localStorage.getItem('results'));
+            },
+
+            getStudentResults(studentId) {
+                const results = JSON.parse(localStorage.getItem('results'));
+                return Object.values(results).filter(result => result.studentId === studentId);
+            },
+
+            deleteResult(resultId) {
+                const results = JSON.parse(localStorage.getItem('results'));
+                delete results[resultId];
+                localStorage.setItem('results', JSON.stringify(results));
+            }
         };
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // Initialize database
+        Database.init();
 
         // DOM Elements
         const adminLoginBtn = document.getElementById('adminLoginBtn');
@@ -682,7 +736,6 @@
         const studentDashboard = document.getElementById('studentDashboard');
         const examTaking = document.getElementById('examTaking');
         const examResults = document.getElementById('examResults');
-        const loading = document.getElementById('loading');
         const currentUserName = document.getElementById('currentUserName');
         const confirmationMessage = document.getElementById('confirmationMessage');
         const confirmationTitle = document.getElementById('confirmationTitle');
@@ -756,16 +809,12 @@
             const password = document.getElementById('adminPassword').value;
             
             if (username === 'admin' && password === 'admin009') {
-                showLoading();
-                setTimeout(() => {
-                    currentUser = {
-                        uid: 'admin-uid',
-                        username: 'admin',
-                        role: 'admin'
-                    };
-                    hideLoading();
-                    updateUI();
-                }, 500);
+                currentUser = {
+                    uid: 'admin-uid',
+                    username: 'admin',
+                    role: 'admin'
+                };
+                updateUI();
             } else {
                 alert('Invalid admin credentials. Use username: admin, password: admin009');
             }
@@ -775,36 +824,20 @@
             const username = document.getElementById('studentUsername').value;
             const password = document.getElementById('studentPassword').value;
             
-            showLoading();
-            db.ref('students').orderByChild('username').equalTo(username).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const students = snapshot.val();
-                        const studentId = Object.keys(students)[0];
-                        const studentData = students[studentId];
-                        
-                        if (studentData.password === password) {
-                            currentUser = {
-                                uid: studentId,
-                                username: studentData.username,
-                                name: studentData.name,
-                                role: 'student'
-                            };
-                            hideLoading();
-                            updateUI();
-                        } else {
-                            hideLoading();
-                            alert('Invalid student password');
-                        }
-                    } else {
-                        hideLoading();
-                        alert('Student not found');
-                    }
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error during login: ' + error.message);
-                });
+            const students = Database.getStudents();
+            const student = Object.values(students).find(s => s.username === username);
+            
+            if (student && student.password === password) {
+                currentUser = {
+                    uid: student.id,
+                    username: student.username,
+                    name: student.name,
+                    role: 'student'
+                };
+                updateUI();
+            } else {
+                alert('Invalid student credentials');
+            }
         }
 
         function logout() {
@@ -862,108 +895,74 @@
                 return;
             }
             
-            showLoading();
+            const students = Database.getStudents();
+            const existingStudent = Object.values(students).find(s => s.username === username);
             
-            db.ref('students').orderByChild('username').equalTo(username).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        hideLoading();
-                        alert('Username already exists');
-                        return;
-                    }
-                    
-                    const newStudentRef = db.ref('students').push();
-                    newStudentRef.set({
-                        name: name,
-                        username: username,
-                        password: password,
-                        createdBy: currentUser.uid,
-                        createdAt: Date.now()
-                    })
-                    .then(() => {
-                        hideLoading();
-                        showConfirmation('Student Added Successfully!', 'Student has been added successfully.');
-                        document.getElementById('studentName').value = '';
-                        document.getElementById('newStudentUsername').value = '';
-                        document.getElementById('newStudentPassword').value = '';
-                        loadStudents();
-                    })
-                    .catch((error) => {
-                        hideLoading();
-                        alert('Error adding student: ' + error.message);
-                    });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error checking username: ' + error.message);
-                });
+            if (existingStudent) {
+                alert('Username already exists');
+                return;
+            }
+            
+            Database.addStudent({
+                name: name,
+                username: username,
+                password: password,
+                createdBy: currentUser.uid
+            });
+            
+            showConfirmation('Student Added Successfully!', 'Student has been added successfully.');
+            document.getElementById('studentName').value = '';
+            document.getElementById('newStudentUsername').value = '';
+            document.getElementById('newStudentPassword').value = '';
+            loadStudents();
         }
 
         function loadStudents() {
-            showLoading();
-            db.ref('students').once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    const studentsList = document.getElementById('studentsList');
-                    const studentSelect = document.getElementById('studentForExam');
-                    
-                    studentsList.innerHTML = '';
-                    studentSelect.innerHTML = '<option value="">Select a student</option>';
-                    
-                    if (!snapshot.exists()) {
-                        studentsList.innerHTML = '<p>No students added yet.</p>';
-                        return;
+            const students = Database.getStudents();
+            const studentsList = document.getElementById('studentsList');
+            const studentSelect = document.getElementById('studentForExam');
+            
+            studentsList.innerHTML = '';
+            studentSelect.innerHTML = '<option value="">Select a student</option>';
+            
+            if (Object.keys(students).length === 0) {
+                studentsList.innerHTML = '<p>No students added yet.</p>';
+                return;
+            }
+            
+            Object.values(students).forEach(student => {
+                const studentCard = document.createElement('div');
+                studentCard.className = 'student-card';
+                studentCard.innerHTML = `
+                    <div class="student-name">${student.name}</div>
+                    <div class="student-credentials">Username: ${student.username}</div>
+                    <div class="student-credentials">Password: ${student.password}</div>
+                    <div class="exam-actions">
+                        <button class="btn btn-danger btn-sm delete-student-btn" data-student-id="${student.id}">Delete Student</button>
+                    </div>
+                `;
+                studentsList.appendChild(studentCard);
+                
+                const option = document.createElement('option');
+                option.value = student.id;
+                option.textContent = `${student.name} (${student.username})`;
+                studentSelect.appendChild(option);
+            });
+            
+            document.querySelectorAll('.delete-student-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const studentId = this.getAttribute('data-student-id');
+                    if (confirm('Are you sure you want to delete this student?')) {
+                        deleteStudent(studentId);
                     }
-                    
-                    const students = snapshot.val();
-                    Object.keys(students).forEach(studentId => {
-                        const student = students[studentId];
-                        
-                        const studentCard = document.createElement('div');
-                        studentCard.className = 'student-card';
-                        studentCard.innerHTML = `
-                            <div class="student-name">${student.name}</div>
-                            <div class="student-credentials">Username: ${student.username}</div>
-                            <div class="student-credentials">Password: ${student.password}</div>
-                            <div class="exam-actions">
-                                <button class="btn btn-danger btn-sm delete-student-btn" data-student-id="${studentId}">Delete Student</button>
-                            </div>
-                        `;
-                        studentsList.appendChild(studentCard);
-                        
-                        const option = document.createElement('option');
-                        option.value = studentId;
-                        option.textContent = `${student.name} (${student.username})`;
-                        studentSelect.appendChild(option);
-                    });
-                    
-                    document.querySelectorAll('.delete-student-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const studentId = this.getAttribute('data-student-id');
-                            if (confirm('Are you sure you want to delete this student?')) {
-                                deleteStudent(studentId);
-                            }
-                        });
-                    });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading students: ' + error.message);
                 });
+            });
         }
 
         function deleteStudent(studentId) {
-            showLoading();
-            db.ref('students').child(studentId).remove()
-                .then(() => {
-                    hideLoading();
-                    showConfirmation('Student Deleted Successfully!', 'Student has been deleted successfully.');
-                    loadStudents();
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error deleting student: ' + error.message);
-                });
+            Database.deleteStudent(studentId);
+            showConfirmation('Student Deleted Successfully!', 'Student has been deleted successfully.');
+            loadStudents();
         }
 
         // Question management functions
@@ -1092,32 +1091,22 @@
                 return;
             }
             
-            showLoading();
-            
-            const newExamRef = db.ref('exams').push();
-            newExamRef.set({
+            Database.addExam({
                 title: examTitle,
                 description: examDescription,
                 timeLimit: timeLimit,
                 questions: questions,
                 assignedTo: studentId,
-                createdBy: currentUser.uid,
-                createdAt: Date.now()
-            })
-            .then(() => {
-                hideLoading();
-                showConfirmation('Exam Created Successfully!', 'Exam has been created and assigned to the student.');
-                document.getElementById('examTitle').value = '';
-                document.getElementById('examDescription').value = '';
-                document.getElementById('examTimeLimit').value = '30';
-                document.getElementById('studentForExam').value = '';
-                document.getElementById('questionsContainer').innerHTML = '';
-                addQuestion();
-            })
-            .catch((error) => {
-                hideLoading();
-                alert('Error creating exam: ' + error.message);
+                createdBy: currentUser.uid
             });
+            
+            showConfirmation('Exam Created Successfully!', 'Exam has been created and assigned to the student.');
+            document.getElementById('examTitle').value = '';
+            document.getElementById('examDescription').value = '';
+            document.getElementById('examTimeLimit').value = '30';
+            document.getElementById('studentForExam').value = '';
+            document.getElementById('questionsContainer').innerHTML = '';
+            addQuestion();
         }
 
         function collectQuestions() {
@@ -1162,146 +1151,114 @@
 
         // Exam taking functions
         function loadAvailableExams() {
-            showLoading();
-            db.ref('exams').orderByChild('assignedTo').equalTo(currentUser.uid).once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    const examsList = document.getElementById('studentExamsList');
-                    examsList.innerHTML = '';
+            const exams = Database.getExams();
+            const results = Database.getResults();
+            const examsList = document.getElementById('studentExamsList');
+            examsList.innerHTML = '';
+            
+            if (Object.keys(exams).length === 0) {
+                examsList.innerHTML = '<p>No exams available for you.</p>';
+                return;
+            }
+            
+            const takenExamIds = new Set();
+            Object.values(results).forEach(result => {
+                if (result.studentId === currentUser.uid) {
+                    takenExamIds.add(result.examId);
+                }
+            });
+            
+            Object.values(exams).forEach(exam => {
+                if (exam.assignedTo === currentUser.uid) {
+                    const examCard = document.createElement('div');
+                    examCard.className = 'exam-card';
                     
-                    if (!snapshot.exists()) {
-                        examsList.innerHTML = '<p>No exams available for you.</p>';
-                        return;
+                    const hasTakenExam = takenExamIds.has(exam.id);
+                    
+                    if (hasTakenExam) {
+                        examCard.innerHTML = `
+                            <div class="exam-title">${exam.title}</div>
+                            <div class="exam-info">${exam.description || 'No description'}</div>
+                            <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
+                            <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
+                            <div class="exam-actions">
+                                <button class="btn btn-secondary" disabled>Already Participated</button>
+                                <button class="btn btn-primary view-questions-btn" data-exam-id="${exam.id}">View Questions</button>
+                            </div>
+                        `;
+                    } else {
+                        examCard.innerHTML = `
+                            <div class="exam-title">${exam.title}</div>
+                            <div class="exam-info">${exam.description || 'No description'}</div>
+                            <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
+                            <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
+                            <button class="btn btn-success participate-btn" data-exam-id="${exam.id}">Participate</button>
+                        `;
                     }
                     
-                    db.ref('results').orderByChild('studentId').equalTo(currentUser.uid).once('value')
-                        .then((resultsSnapshot) => {
-                            const takenExamIds = new Set();
-                            if (resultsSnapshot.exists()) {
-                                const results = resultsSnapshot.val();
-                                Object.keys(results).forEach(resultId => {
-                                    takenExamIds.add(results[resultId].examId);
-                                });
-                            }
-                            
-                            const exams = snapshot.val();
-                            Object.keys(exams).forEach(examId => {
-                                const exam = exams[examId];
-                                const examCard = document.createElement('div');
-                                examCard.className = 'exam-card';
-                                
-                                const hasTakenExam = takenExamIds.has(examId);
-                                
-                                if (hasTakenExam) {
-                                    examCard.innerHTML = `
-                                        <div class="exam-title">${exam.title}</div>
-                                        <div class="exam-info">${exam.description || 'No description'}</div>
-                                        <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
-                                        <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
-                                        <div class="exam-actions">
-                                            <button class="btn btn-secondary" disabled>Already Participated</button>
-                                            <button class="btn btn-primary view-questions-btn" data-exam-id="${examId}">View Questions</button>
-                                        </div>
-                                    `;
-                                } else {
-                                    examCard.innerHTML = `
-                                        <div class="exam-title">${exam.title}</div>
-                                        <div class="exam-info">${exam.description || 'No description'}</div>
-                                        <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
-                                        <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
-                                        <button class="btn btn-success participate-btn" data-exam-id="${examId}">Participate</button>
-                                    `;
-                                }
-                                
-                                examsList.appendChild(examCard);
-                            });
-                            
-                            document.querySelectorAll('.participate-btn').forEach(btn => {
-                                btn.addEventListener('click', function() {
-                                    const examId = this.getAttribute('data-exam-id');
-                                    startExam(examId);
-                                });
-                            });
-                            
-                            document.querySelectorAll('.view-questions-btn').forEach(btn => {
-                                btn.addEventListener('click', function() {
-                                    const examId = this.getAttribute('data-exam-id');
-                                    viewExamQuestions(examId);
-                                });
-                            });
-                        });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading exams: ' + error.message);
+                    examsList.appendChild(examCard);
+                }
+            });
+            
+            document.querySelectorAll('.participate-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const examId = this.getAttribute('data-exam-id');
+                    startExam(examId);
                 });
+            });
+            
+            document.querySelectorAll('.view-questions-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const examId = this.getAttribute('data-exam-id');
+                    viewExamQuestions(examId);
+                });
+            });
         }
 
         function startExam(examId) {
-            showLoading();
-            db.ref('exams').child(examId).once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    if (snapshot.exists()) {
-                        currentExam = snapshot.val();
-                        currentExamId = examId;
-                        currentQuestions = currentExam.questions;
-                        userAnswers = {};
-                        examSubmitted = false;
-                        
-                        examStartTime = new Date();
-                        
-                        studentDashboard.classList.add('hidden');
-                        examTaking.classList.remove('hidden');
-                        
-                        document.getElementById('examTakingTitle').textContent = currentExam.title;
-                        document.getElementById('examTakingDescription').textContent = currentExam.description || '';
-                        
-                        startTimer(currentExam.timeLimit);
-                        displayExamQuestions();
-                        
-                        window.addEventListener('beforeunload', handleBeforeUnload);
-                    } else {
-                        alert('Exam not found');
-                    }
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading exam: ' + error.message);
-                });
+            const exam = Database.getExam(examId);
+            if (exam) {
+                currentExam = exam;
+                currentExamId = examId;
+                currentQuestions = exam.questions;
+                userAnswers = {};
+                examSubmitted = false;
+                
+                examStartTime = new Date();
+                
+                studentDashboard.classList.add('hidden');
+                examTaking.classList.remove('hidden');
+                
+                document.getElementById('examTakingTitle').textContent = currentExam.title;
+                document.getElementById('examTakingDescription').textContent = currentExam.description || '';
+                
+                startTimer(currentExam.timeLimit);
+                displayExamQuestions();
+                
+                window.addEventListener('beforeunload', handleBeforeUnload);
+            } else {
+                alert('Exam not found');
+            }
         }
 
         function viewExamQuestions(examId) {
-            showLoading();
-            db.ref('exams').child(examId).once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    if (snapshot.exists()) {
-                        const exam = snapshot.val();
-                        currentExam = exam;
-                        currentQuestions = exam.questions;
-                        
-                        return db.ref('results').orderByChild('examId').equalTo(examId).once('value')
-                            .then((resultsSnapshot) => {
-                                if (resultsSnapshot.exists()) {
-                                    const results = resultsSnapshot.val();
-                                    const resultId = Object.keys(results)[0];
-                                    const result = results[resultId];
-                                    userAnswers = result.answers;
-                                    
-                                    showExamResults(result.score);
-                                } else {
-                                    alert('No result found for this exam');
-                                }
-                            });
-                    } else {
-                        alert('Exam not found');
-                    }
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading exam: ' + error.message);
-                });
+            const exam = Database.getExam(examId);
+            if (exam) {
+                currentExam = exam;
+                currentQuestions = exam.questions;
+                
+                const results = Database.getStudentResults(currentUser.uid);
+                const result = results.find(r => r.examId === examId);
+                
+                if (result) {
+                    userAnswers = result.answers;
+                    showExamResults(result.score);
+                } else {
+                    alert('No result found for this exam');
+                }
+            } else {
+                alert('Exam not found');
+            }
         }
 
         function startTimer(minutes) {
@@ -1396,8 +1353,6 @@
                 }
             }
             
-            showLoading();
-            
             let score = 0;
             currentQuestions.forEach((question, index) => {
                 if (userAnswers[index] === question.correctAnswer) {
@@ -1405,8 +1360,7 @@
                 }
             });
             
-            const newResultRef = db.ref('results').push();
-            newResultRef.set({
+            Database.addResult({
                 examId: currentExamId,
                 examTitle: currentExam.title,
                 studentId: currentUser.uid,
@@ -1415,23 +1369,15 @@
                 answers: userAnswers,
                 score: score,
                 totalQuestions: currentQuestions.length,
-                timeSpent: (currentExam.timeLimit * 60) - timeLeft,
-                submittedAt: Date.now()
-            })
-            .then(() => {
-                hideLoading();
-                examSubmitted = true;
-                showConfirmation(
-                    'Exam Submitted Successfully!', 
-                    `Your exam has been submitted. Score: ${score}/${currentQuestions.length}`,
-                    true
-                );
-            })
-            .catch((error) => {
-                hideLoading();
-                alert('Error submitting exam: ' + error.message);
-                document.getElementById('submitExamBtn').disabled = false;
+                timeSpent: (currentExam.timeLimit * 60) - timeLeft
             });
+            
+            examSubmitted = true;
+            showConfirmation(
+                'Exam Submitted Successfully!', 
+                `Your exam has been submitted. Score: ${score}/${currentQuestions.length}`,
+                true
+            );
         }
 
         function showExamResults(score) {
@@ -1478,218 +1424,151 @@
 
         // Admin functions
         function loadAdminExams() {
-            showLoading();
-            db.ref('exams').orderByChild('createdBy').equalTo(currentUser.uid).once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    const examsList = document.getElementById('adminExamsList');
-                    examsList.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        examsList.innerHTML = '<p>You haven\'t created any exams yet.</p>';
-                        return;
+            const exams = Database.getExams();
+            const examsList = document.getElementById('adminExamsList');
+            examsList.innerHTML = '';
+            
+            if (Object.keys(exams).length === 0) {
+                examsList.innerHTML = '<p>You haven\'t created any exams yet.</p>';
+                return;
+            }
+            
+            Object.values(exams).forEach(exam => {
+                if (exam.createdBy === currentUser.uid) {
+                    const examCard = document.createElement('div');
+                    examCard.className = 'exam-card';
+                    examCard.innerHTML = `
+                        <div class="exam-title">${exam.title}</div>
+                        <div class="exam-info">${exam.description || 'No description'}</div>
+                        <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
+                        <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
+                        <div class="exam-actions">
+                            <button class="btn btn-danger btn-sm delete-exam-btn" data-exam-id="${exam.id}">Delete Exam</button>
+                        </div>
+                    `;
+                    examsList.appendChild(examCard);
+                }
+            });
+            
+            document.querySelectorAll('.delete-exam-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const examId = this.getAttribute('data-exam-id');
+                    if (confirm('Are you sure you want to delete this exam? This will also remove it from the student\'s dashboard.')) {
+                        deleteExam(examId);
                     }
-                    
-                    const exams = snapshot.val();
-                    Object.keys(exams).forEach(examId => {
-                        const exam = exams[examId];
-                        const examCard = document.createElement('div');
-                        examCard.className = 'exam-card';
-                        examCard.innerHTML = `
-                            <div class="exam-title">${exam.title}</div>
-                            <div class="exam-info">${exam.description || 'No description'}</div>
-                            <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
-                            <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
-                            <div class="exam-actions">
-                                <button class="btn btn-danger btn-sm delete-exam-btn" data-exam-id="${examId}">Delete Exam</button>
-                            </div>
-                        `;
-                        examsList.appendChild(examCard);
-                    });
-                    
-                    document.querySelectorAll('.delete-exam-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const examId = this.getAttribute('data-exam-id');
-                            if (confirm('Are you sure you want to delete this exam? This will also remove it from the student\'s dashboard.')) {
-                                deleteExam(examId);
-                            }
-                        });
-                    });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading exams: ' + error.message);
                 });
+            });
         }
 
         function deleteExam(examId) {
-            showLoading();
-            db.ref('exams').child(examId).remove()
-                .then(() => {
-                    return db.ref('results').orderByChild('examId').equalTo(examId).once('value')
-                        .then((snapshot) => {
-                            if (snapshot.exists()) {
-                                const results = snapshot.val();
-                                const deletePromises = Object.keys(results).map(resultId => 
-                                    db.ref('results').child(resultId).remove()
-                                );
-                                return Promise.all(deletePromises);
-                            }
-                        });
-                })
-                .then(() => {
-                    hideLoading();
-                    showConfirmation('Exam Deleted Successfully!', 'Exam has been deleted successfully.');
-                    loadAdminExams();
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error deleting exam: ' + error.message);
-                });
+            Database.deleteExam(examId);
+            
+            // Also delete related results
+            const results = Database.getResults();
+            Object.keys(results).forEach(resultId => {
+                if (results[resultId].examId === examId) {
+                    Database.deleteResult(resultId);
+                }
+            });
+            
+            showConfirmation('Exam Deleted Successfully!', 'Exam has been deleted successfully.');
+            loadAdminExams();
         }
 
         function loadAllResults() {
-            showLoading();
-            db.ref('results').once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    const resultsList = document.getElementById('resultsList');
-                    resultsList.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        resultsList.innerHTML = '<p>No results found.</p>';
-                        return;
+            const results = Database.getResults();
+            const resultsList = document.getElementById('resultsList');
+            resultsList.innerHTML = '';
+            
+            if (Object.keys(results).length === 0) {
+                resultsList.innerHTML = '<p>No results found.</p>';
+                return;
+            }
+            
+            Object.values(results).forEach(result => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'exam-card';
+                resultCard.innerHTML = `
+                    <div class="exam-title">${result.examTitle}</div>
+                    <div class="exam-info">Student: ${result.studentName} (${result.studentUsername})</div>
+                    <div class="exam-info">Score: ${result.score}/${result.totalQuestions}</div>
+                    <div class="exam-info">Percentage: ${Math.round((result.score / result.totalQuestions) * 100)}%</div>
+                    <div class="exam-info">Submitted: ${new Date(result.submittedAt).toLocaleDateString()}</div>
+                    <div class="exam-actions">
+                        <button class="btn btn-danger btn-sm delete-result-btn" data-result-id="${result.id}">Delete Result</button>
+                    </div>
+                `;
+                resultsList.appendChild(resultCard);
+            });
+            
+            document.querySelectorAll('.delete-result-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const resultId = this.getAttribute('data-result-id');
+                    if (confirm('Are you sure you want to delete this result? This will also remove it from the student\'s dashboard.')) {
+                        deleteResult(resultId);
                     }
-                    
-                    const results = snapshot.val();
-                    Object.keys(results).forEach(resultId => {
-                        const result = results[resultId];
-                        const resultCard = document.createElement('div');
-                        resultCard.className = 'exam-card';
-                        resultCard.innerHTML = `
-                            <div class="exam-title">${result.examTitle}</div>
-                            <div class="exam-info">Student: ${result.studentName} (${result.studentUsername})</div>
-                            <div class="exam-info">Score: ${result.score}/${result.totalQuestions}</div>
-                            <div class="exam-info">Percentage: ${Math.round((result.score / result.totalQuestions) * 100)}%</div>
-                            <div class="exam-info">Submitted: ${new Date(result.submittedAt).toLocaleDateString()}</div>
-                            <div class="exam-actions">
-                                <button class="btn btn-danger btn-sm delete-result-btn" data-result-id="${resultId}">Delete Result</button>
-                            </div>
-                        `;
-                        resultsList.appendChild(resultCard);
-                    });
-                    
-                    document.querySelectorAll('.delete-result-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const resultId = this.getAttribute('data-result-id');
-                            if (confirm('Are you sure you want to delete this result? This will also remove it from the student\'s dashboard.')) {
-                                deleteResult(resultId);
-                            }
-                        });
-                    });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading results: ' + error.message);
                 });
+            });
         }
 
         function deleteResult(resultId) {
-            showLoading();
-            db.ref('results').child(resultId).remove()
-                .then(() => {
-                    hideLoading();
-                    showConfirmation('Result Deleted Successfully!', 'Result has been deleted successfully.');
-                    loadAllResults();
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error deleting result: ' + error.message);
-                });
+            Database.deleteResult(resultId);
+            showConfirmation('Result Deleted Successfully!', 'Result has been deleted successfully.');
+            loadAllResults();
         }
 
         function loadStudentResults() {
-            showLoading();
-            db.ref('results').orderByChild('studentId').equalTo(currentUser.uid).once('value')
-                .then((snapshot) => {
-                    hideLoading();
-                    const resultsList = document.getElementById('studentResultsList');
-                    resultsList.innerHTML = '';
-                    
-                    if (!snapshot.exists()) {
-                        resultsList.innerHTML = '<p>You haven\'t taken any exams yet.</p>';
-                        return;
-                    }
-                    
-                    const results = snapshot.val();
-                    Object.keys(results).forEach(resultId => {
-                        const result = results[resultId];
-                        const resultCard = document.createElement('div');
-                        resultCard.className = 'exam-card';
-                        resultCard.innerHTML = `
-                            <div class="exam-title">${result.examTitle}</div>
-                            <div class="exam-info">Score: ${result.score}/${result.totalQuestions}</div>
-                            <div class="exam-info">Percentage: ${Math.round((result.score / result.totalQuestions) * 100)}%</div>
-                            <div class="exam-info">Submitted: ${new Date(result.submittedAt).toLocaleDateString()}</div>
-                            <button class="btn btn-primary view-result-btn" data-result-id="${resultId}">View Details</button>
-                        `;
-                        resultsList.appendChild(resultCard);
-                    });
-                    
-                    document.querySelectorAll('.view-result-btn').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const resultId = this.getAttribute('data-result-id');
-                            viewResultDetails(resultId);
-                        });
-                    });
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading results: ' + error.message);
+            const results = Database.getStudentResults(currentUser.uid);
+            const resultsList = document.getElementById('studentResultsList');
+            resultsList.innerHTML = '';
+            
+            if (results.length === 0) {
+                resultsList.innerHTML = '<p>You haven\'t taken any exams yet.</p>';
+                return;
+            }
+            
+            results.forEach(result => {
+                const resultCard = document.createElement('div');
+                resultCard.className = 'exam-card';
+                resultCard.innerHTML = `
+                    <div class="exam-title">${result.examTitle}</div>
+                    <div class="exam-info">Score: ${result.score}/${result.totalQuestions}</div>
+                    <div class="exam-info">Percentage: ${Math.round((result.score / result.totalQuestions) * 100)}%</div>
+                    <div class="exam-info">Submitted: ${new Date(result.submittedAt).toLocaleDateString()}</div>
+                    <button class="btn btn-primary view-result-btn" data-result-id="${result.id}">View Details</button>
+                `;
+                resultsList.appendChild(resultCard);
+            });
+            
+            document.querySelectorAll('.view-result-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const resultId = this.getAttribute('data-result-id');
+                    viewResultDetails(resultId);
                 });
+            });
         }
 
         function viewResultDetails(resultId) {
-            showLoading();
-            db.ref('results').child(resultId).once('value')
-                .then((snapshot) => {
-                    if (snapshot.exists()) {
-                        const result = snapshot.val();
-                        
-                        return db.ref('exams').child(result.examId).once('value')
-                            .then((examSnapshot) => {
-                                hideLoading();
-                                if (examSnapshot.exists()) {
-                                    const exam = examSnapshot.val();
-                                    currentExam = exam;
-                                    currentQuestions = exam.questions;
-                                    userAnswers = result.answers;
-                                    
-                                    showExamResults(result.score);
-                                } else {
-                                    alert('Exam details not found');
-                                }
-                            });
-                    } else {
-                        hideLoading();
-                        alert('Result not found');
-                    }
-                })
-                .catch((error) => {
-                    hideLoading();
-                    alert('Error loading result details: ' + error.message);
-                });
+            const results = Database.getResults();
+            const result = results[resultId];
+            
+            if (result) {
+                const exam = Database.getExam(result.examId);
+                if (exam) {
+                    currentExam = exam;
+                    currentQuestions = exam.questions;
+                    userAnswers = result.answers;
+                    
+                    showExamResults(result.score);
+                } else {
+                    alert('Exam details not found');
+                }
+            } else {
+                alert('Result not found');
+            }
         }
 
         // Utility functions
-        function showLoading() {
-            loading.classList.remove('hidden');
-        }
-
-        function hideLoading() {
-            loading.classList.add('hidden');
-        }
-
         function showConfirmation(title, text, goToResults = false) {
             confirmationTitle.textContent = title;
             confirmationText.textContent = text;
