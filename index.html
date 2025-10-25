@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCQ Exam Generator</title>
+    <title>Joy's Territory</title>
     <!-- KaTeX for mathematical equations -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
     <style>
+        /* Your existing CSS remains the same */
         :root {
             --primary: #4361ee;
             --secondary: #3f37c9;
@@ -442,6 +443,59 @@
             margin-bottom: 5px;
         }
 
+        /* NEW STYLES FOR ENHANCEMENTS */
+        .question-category {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .category-btn {
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            background-color: white;
+            cursor: pointer;
+        }
+
+        .category-btn.active {
+            background-color: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .students-multiselect {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .student-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .student-checkbox input {
+            margin-right: 10px;
+        }
+
+        .cq-answer-container {
+            margin-top: 10px;
+        }
+
+        .cq-answer-container textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+        }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -476,7 +530,7 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">MCQ Exam Generator</div>
+                <div class="logo">Joy's Territory</div>
                 <div class="user-info">
                     <span id="currentUserName" class="hidden"></span>
                     <div class="auth-section">
@@ -543,10 +597,10 @@
                         <input type="number" id="examTimeLimit" placeholder="Enter time limit in minutes" min="1" value="30">
                     </div>
                     <div class="form-group">
-                        <label for="studentForExam">Assign to Student</label>
-                        <select id="studentForExam">
-                            <option value="">Select a student</option>
-                        </select>
+                        <label>Assign to Students</label>
+                        <div class="students-multiselect" id="studentsForExam">
+                            <!-- Students checkboxes will be added here -->
+                        </div>
                     </div>
                 </div>
 
@@ -983,17 +1037,19 @@
         function loadStudents() {
             const students = Database.getStudents();
             const studentsList = document.getElementById('studentsList');
-            const studentSelect = document.getElementById('studentForExam');
+            const studentsForExam = document.getElementById('studentsForExam');
             
             studentsList.innerHTML = '';
-            studentSelect.innerHTML = '<option value="">Select a student</option>';
+            studentsForExam.innerHTML = '';
             
             if (Object.keys(students).length === 0) {
                 studentsList.innerHTML = '<p>No students added yet.</p>';
+                studentsForExam.innerHTML = '<p>No students available. Please add students first.</p>';
                 return;
             }
             
             Object.values(students).forEach(student => {
+                // For students list
                 const studentCard = document.createElement('div');
                 studentCard.className = 'student-card';
                 studentCard.innerHTML = `
@@ -1006,10 +1062,14 @@
                 `;
                 studentsList.appendChild(studentCard);
                 
-                const option = document.createElement('option');
-                option.value = student.id;
-                option.textContent = `${student.name} (${student.username})`;
-                studentSelect.appendChild(option);
+                // For students multiselect
+                const studentCheckbox = document.createElement('div');
+                studentCheckbox.className = 'student-checkbox';
+                studentCheckbox.innerHTML = `
+                    <input type="checkbox" id="student-${student.id}" value="${student.id}">
+                    <label for="student-${student.id}">${student.name} (${student.username})</label>
+                `;
+                studentsForExam.appendChild(studentCheckbox);
             });
             
             document.querySelectorAll('.delete-student-btn').forEach(btn => {
@@ -1039,6 +1099,12 @@
                         <div class="question-number">Question ${questionCount}</div>
                         <button class="btn btn-danger remove-question-btn">Remove</button>
                     </div>
+                    
+                    <div class="question-category">
+                        <button class="category-btn active" data-category="mcq">MCQ</button>
+                        <button class="category-btn" data-category="cq">CQ</button>
+                    </div>
+                    
                     <div class="question-type">
                         <button class="type-btn active" data-type="text">Text</button>
                         <button class="type-btn" data-type="math">Math Equation</button>
@@ -1075,27 +1141,36 @@
                         <img class="question-image-preview" src="" alt="Question image preview" style="max-width: 100%; display: none;">
                     </div>
                     
-                    <div class="form-group">
-                        <label>Options</label>
-                        <div class="option">
-                            <input type="text" class="option-text" placeholder="Option 1">
-                            <input type="radio" name="answer-${questionCount}" value="0" class="correct-answer">
-                            <span>Correct Answer</span>
+                    <div class="mcq-options">
+                        <div class="form-group">
+                            <label>Options</label>
+                            <div class="option">
+                                <input type="text" class="option-text" placeholder="Option 1">
+                                <input type="radio" name="answer-${questionCount}" value="0" class="correct-answer">
+                                <span>Correct Answer</span>
+                            </div>
+                            <div class="option">
+                                <input type="text" class="option-text" placeholder="Option 2">
+                                <input type="radio" name="answer-${questionCount}" value="1" class="correct-answer">
+                                <span>Correct Answer</span>
+                            </div>
+                            <div class="option">
+                                <input type="text" class="option-text" placeholder="Option 3">
+                                <input type="radio" name="answer-${questionCount}" value="2" class="correct-answer">
+                                <span>Correct Answer</span>
+                            </div>
+                            <div class="option">
+                                <input type="text" class="option-text" placeholder="Option 4">
+                                <input type="radio" name="answer-${questionCount}" value="3" class="correct-answer">
+                                <span>Correct Answer</span>
+                            </div>
                         </div>
-                        <div class="option">
-                            <input type="text" class="option-text" placeholder="Option 2">
-                            <input type="radio" name="answer-${questionCount}" value="1" class="correct-answer">
-                            <span>Correct Answer</span>
-                        </div>
-                        <div class="option">
-                            <input type="text" class="option-text" placeholder="Option 3">
-                            <input type="radio" name="answer-${questionCount}" value="2" class="correct-answer">
-                            <span>Correct Answer</span>
-                        </div>
-                        <div class="option">
-                            <input type="text" class="option-text" placeholder="Option 4">
-                            <input type="radio" name="answer-${questionCount}" value="3" class="correct-answer">
-                            <span>Correct Answer</span>
+                    </div>
+                    
+                    <div class="cq-answer-container hidden">
+                        <div class="form-group">
+                            <label>Expected Answer</label>
+                            <textarea class="cq-answer" placeholder="Enter the expected answer for this CQ question"></textarea>
                         </div>
                     </div>
                 </div>
@@ -1105,6 +1180,24 @@
             
             const newQuestion = questionsContainer.lastElementChild;
             
+            // Category toggle
+            newQuestion.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const category = this.getAttribute('data-category');
+                    newQuestion.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    if (category === 'mcq') {
+                        newQuestion.querySelector('.mcq-options').classList.remove('hidden');
+                        newQuestion.querySelector('.cq-answer-container').classList.add('hidden');
+                    } else {
+                        newQuestion.querySelector('.mcq-options').classList.add('hidden');
+                        newQuestion.querySelector('.cq-answer-container').classList.remove('hidden');
+                    }
+                });
+            });
+            
+            // Type toggle
             newQuestion.querySelectorAll('.type-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const type = this.getAttribute('data-type');
@@ -1172,15 +1265,20 @@
             const examTitle = document.getElementById('examTitle').value;
             const examDescription = document.getElementById('examDescription').value;
             const timeLimit = parseInt(document.getElementById('examTimeLimit').value);
-            const studentId = document.getElementById('studentForExam').value;
+            
+            // Get selected students
+            const selectedStudents = [];
+            document.querySelectorAll('#studentsForExam input[type="checkbox"]:checked').forEach(checkbox => {
+                selectedStudents.push(checkbox.value);
+            });
             
             if (!examTitle) {
                 alert('Please enter an exam title');
                 return;
             }
             
-            if (!studentId) {
-                alert('Please select a student for this exam');
+            if (selectedStudents.length === 0) {
+                alert('Please select at least one student for this exam');
                 return;
             }
             
@@ -1195,15 +1293,14 @@
                 description: examDescription,
                 timeLimit: timeLimit,
                 questions: questions,
-                assignedTo: studentId,
+                assignedTo: selectedStudents, // Now an array of student IDs
                 createdBy: currentUser.uid
             });
             
-            showConfirmation('Exam Created Successfully!', 'Exam has been created and assigned to the student.');
+            showConfirmation('Exam Created Successfully!', 'Exam has been created and assigned to the selected students.');
             document.getElementById('examTitle').value = '';
             document.getElementById('examDescription').value = '';
             document.getElementById('examTimeLimit').value = '30';
-            document.getElementById('studentForExam').value = '';
             document.getElementById('questionsContainer').innerHTML = '';
             addQuestion();
         }
@@ -1214,24 +1311,33 @@
             
             questionContainers.forEach(container => {
                 const questionId = container.getAttribute('data-question-id');
+                const category = container.querySelector('.category-btn.active').getAttribute('data-category');
                 const type = container.querySelector('.type-btn.active').getAttribute('data-type');
-                const options = [];
-                let correctAnswer = -1;
-                
-                container.querySelectorAll('.option').forEach((optionEl, index) => {
-                    const optionText = optionEl.querySelector('.option-text').value;
-                    options.push(optionText);
-                    
-                    if (optionEl.querySelector('.correct-answer').checked) {
-                        correctAnswer = index;
-                    }
-                });
                 
                 let questionData = {
-                    type: type,
-                    options: options,
-                    correctAnswer: correctAnswer
+                    category: category,
+                    type: type
                 };
+                
+                if (category === 'mcq') {
+                    const options = [];
+                    let correctAnswer = -1;
+                    
+                    container.querySelectorAll('.option').forEach((optionEl, index) => {
+                        const optionText = optionEl.querySelector('.option-text').value;
+                        options.push(optionText);
+                        
+                        if (optionEl.querySelector('.correct-answer').checked) {
+                            correctAnswer = index;
+                        }
+                    });
+                    
+                    questionData.options = options;
+                    questionData.correctAnswer = correctAnswer;
+                } else {
+                    // CQ question
+                    questionData.expectedAnswer = container.querySelector('.cq-answer').value;
+                }
                 
                 if (type === 'text') {
                     questionData.text = container.querySelector('.question-text').value;
@@ -1252,7 +1358,7 @@
             return questions;
         }
 
-        // Exam taking functions
+        // FIXED: Exam taking functions - CORRECTED VERSION
         function loadAvailableExams() {
             const exams = Database.getExams();
             const results = Database.getResults();
@@ -1264,6 +1370,7 @@
                 return;
             }
             
+            // Get all exam IDs that the CURRENT student has already taken
             const takenExamIds = new Set();
             Object.values(results).forEach(result => {
                 if (result.studentId === currentUser.uid) {
@@ -1271,14 +1378,21 @@
                 }
             });
             
+            // Show exams assigned to this student
+            let hasAvailableExams = false;
+            
             Object.values(exams).forEach(exam => {
-                if (exam.assignedTo === currentUser.uid) {
+                // Check if this exam is assigned to this student (now assignedTo is an array)
+                if (Array.isArray(exam.assignedTo) && exam.assignedTo.includes(currentUser.uid)) {
+                    hasAvailableExams = true;
+                    // FIX: Only check if the CURRENT student has taken this exam
+                    const hasTakenExam = takenExamIds.has(exam.id);
+                    
                     const examCard = document.createElement('div');
                     examCard.className = 'exam-card';
                     
-                    const hasTakenExam = takenExamIds.has(exam.id);
-                    
                     if (hasTakenExam) {
+                        // Exam already taken by THIS student - show as completed
                         examCard.innerHTML = `
                             <div class="exam-title">${exam.title}</div>
                             <div class="exam-info">${exam.description || 'No description'}</div>
@@ -1290,6 +1404,7 @@
                             </div>
                         `;
                     } else {
+                        // New exam for THIS student - show participate button
                         examCard.innerHTML = `
                             <div class="exam-title">${exam.title}</div>
                             <div class="exam-info">${exam.description || 'No description'}</div>
@@ -1303,6 +1418,12 @@
                 }
             });
             
+            if (!hasAvailableExams) {
+                examsList.innerHTML = '<p>No exams available for you. The admin will assign exams to you.</p>';
+                return;
+            }
+            
+            // Add event listeners for participate buttons
             document.querySelectorAll('.participate-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const examId = this.getAttribute('data-exam-id');
@@ -1310,6 +1431,7 @@
                 });
             });
             
+            // Add event listeners for view questions buttons
             document.querySelectorAll('.view-questions-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const examId = this.getAttribute('data-exam-id');
@@ -1417,10 +1539,10 @@
                     questionContent = '<p>[No question content]</p>';
                 }
                 
-                const questionHTML = `
-                    <div class="card">
-                        <div class="question-number">Question ${index + 1}</div>
-                        ${questionContent}
+                let answerInput = '';
+                
+                if (question.category === 'mcq') {
+                    answerInput = `
                         <div class="form-group">
                             ${question.options.map((option, optionIndex) => `
                                 <div class="option">
@@ -1429,16 +1551,39 @@
                                 </div>
                             `).join('')}
                         </div>
+                    `;
+                } else {
+                    answerInput = `
+                        <div class="form-group">
+                            <label for="cq-answer-${index}">Your Answer:</label>
+                            <textarea id="cq-answer-${index}" class="cq-answer-field" placeholder="Type your answer here..."></textarea>
+                        </div>
+                    `;
+                }
+                
+                const questionHTML = `
+                    <div class="card">
+                        <div class="question-number">Question ${index + 1} (${question.category === 'mcq' ? 'MCQ' : 'CQ'})</div>
+                        ${questionContent}
+                        ${answerInput}
                     </div>
                 `;
                 container.insertAdjacentHTML('beforeend', questionHTML);
                 
                 const questionElement = container.lastElementChild;
-                questionElement.querySelectorAll('input[type="radio"]').forEach(radio => {
-                    radio.addEventListener('change', function() {
-                        userAnswers[index] = parseInt(this.value);
+                
+                if (question.category === 'mcq') {
+                    questionElement.querySelectorAll('input[type="radio"]').forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            userAnswers[index] = parseInt(this.value);
+                        });
                     });
-                });
+                } else {
+                    const textarea = questionElement.querySelector('.cq-answer-field');
+                    textarea.addEventListener('input', function() {
+                        userAnswers[index] = this.value;
+                    });
+                }
             });
             
             // Render math equations after adding to DOM
@@ -1461,10 +1606,15 @@
             document.getElementById('examTimer').classList.add('hidden');
             document.getElementById('submitExamBtn').disabled = true;
             
-            const unanswered = currentQuestions.map((_, index) => index).filter(index => userAnswers[index] === undefined);
+            // For MCQ questions, check if all are answered
+            const unansweredMcq = currentQuestions
+                .map((question, index) => ({question, index}))
+                .filter(({question, index}) => 
+                    question.category === 'mcq' && userAnswers[index] === undefined
+                );
             
-            if (unanswered.length > 0) {
-                if (!confirm(`You have ${unanswered.length} unanswered questions. Submit anyway?`)) {
+            if (unansweredMcq.length > 0) {
+                if (!confirm(`You have ${unansweredMcq.length} unanswered MCQ questions. Submit anyway?`)) {
                     startTimer(Math.ceil(timeLeft / 60));
                     window.addEventListener('beforeunload', handleBeforeUnload);
                     document.getElementById('submitExamBtn').disabled = false;
@@ -1474,9 +1624,12 @@
             
             let score = 0;
             currentQuestions.forEach((question, index) => {
-                if (userAnswers[index] === question.correctAnswer) {
-                    score++;
+                if (question.category === 'mcq') {
+                    if (userAnswers[index] === question.correctAnswer) {
+                        score++;
+                    }
                 }
+                // For CQ questions, we don't auto-score, just record the answer
             });
             
             Database.addResult({
@@ -1492,11 +1645,9 @@
             });
             
             examSubmitted = true;
-            showConfirmation(
-                'Exam Submitted Successfully!', 
-                `Your exam has been submitted. Score: ${score}/${currentQuestions.length}`,
-                true
-            );
+            
+            // Show results immediately
+            showExamResults(score);
         }
 
         function showExamResults(score) {
@@ -1512,7 +1663,17 @@
             
             currentQuestions.forEach((question, index) => {
                 const userAnswer = userAnswers[index];
-                const isCorrect = userAnswer === question.correctAnswer;
+                let isCorrect = false;
+                let answerDisplay = '';
+                
+                if (question.category === 'mcq') {
+                    isCorrect = userAnswer === question.correctAnswer;
+                    answerDisplay = userAnswer !== undefined ? 
+                        question.options[userAnswer] : 'Not answered';
+                } else {
+                    // For CQ questions, we just display the answer
+                    answerDisplay = userAnswer || 'Not answered';
+                }
                 
                 let questionContent = '';
                 
@@ -1531,17 +1692,19 @@
                 }
                 
                 const questionHTML = `
-                    <div class="card ${isCorrect ? 'correct-answer' : 'incorrect-answer'}">
-                        <div class="question-number">Question ${index + 1}</div>
+                    <div class="card ${question.category === 'mcq' ? (isCorrect ? 'correct-answer' : 'incorrect-answer') : ''}">
+                        <div class="question-number">Question ${index + 1} (${question.category === 'mcq' ? 'MCQ' : 'CQ'})</div>
                         ${questionContent}
                         <div class="student-answer">
                             <strong>Your answer:</strong> 
-                            ${userAnswer !== undefined ? question.options[userAnswer] : 'Not answered'}
-                            ${isCorrect ? ' ✓' : ' ✗'}
+                            ${answerDisplay}
+                            ${question.category === 'mcq' ? (isCorrect ? ' ✓' : ' ✗') : ''}
                         </div>
-                        <div class="correct-answer">
-                            <strong>Correct answer:</strong> ${question.options[question.correctAnswer]}
-                        </div>
+                        ${question.category === 'mcq' ? `
+                            <div class="correct-answer">
+                                <strong>Correct answer:</strong> ${question.options[question.correctAnswer]}
+                            </div>
+                        ` : ''}
                     </div>
                 `;
                 container.insertAdjacentHTML('beforeend', questionHTML);
@@ -1554,6 +1717,7 @@
         function backToDashboard() {
             examResults.classList.add('hidden');
             studentDashboard.classList.remove('hidden');
+            // Refresh the available exams list to reflect the completed exam
             loadAvailableExams();
         }
 
@@ -1572,11 +1736,19 @@
                 if (exam.createdBy === currentUser.uid) {
                     const examCard = document.createElement('div');
                     examCard.className = 'exam-card';
+                    
+                    // Get student names for display
+                    const students = Database.getStudents();
+                    const assignedStudents = Array.isArray(exam.assignedTo) ? 
+                        exam.assignedTo.map(id => students[id]?.name || 'Unknown').join(', ') : 
+                        'No students assigned';
+                    
                     examCard.innerHTML = `
                         <div class="exam-title">${exam.title}</div>
                         <div class="exam-info">${exam.description || 'No description'}</div>
                         <div class="exam-info">${exam.questions ? exam.questions.length : 0} questions</div>
                         <div class="exam-info">Time Limit: ${exam.timeLimit} minutes</div>
+                        <div class="exam-info">Assigned to: ${assignedStudents}</div>
                         <div class="exam-actions">
                             <button class="btn btn-danger btn-sm delete-exam-btn" data-exam-id="${exam.id}">Delete Exam</button>
                         </div>
@@ -1713,7 +1885,7 @@
         }
 
         // Utility functions
-        function showConfirmation(title, text, goToResults = false) {
+        function showConfirmation(title, text) {
             confirmationTitle.textContent = title;
             confirmationText.textContent = text;
             confirmationMessage.classList.remove('hidden');
@@ -1721,11 +1893,6 @@
             
             confirmationOkBtn.onclick = function() {
                 hideConfirmation();
-                if (goToResults) {
-                    examTaking.classList.add('hidden');
-                    studentDashboard.classList.remove('hidden');
-                    document.querySelector('[data-tab="myResults"]').click();
-                }
             };
         }
 
