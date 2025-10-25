@@ -8,6 +8,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <style>
         /* Your existing CSS remains the same */
         :root {
@@ -730,103 +733,94 @@
     <div id="overlay" class="overlay hidden"></div>
 
     <script>
-        // Simple localStorage-based database simulation
-        const Database = {
-            // Initialize with sample data if empty
-            init() {
-                if (!localStorage.getItem('students')) {
-                    localStorage.setItem('students', JSON.stringify({}));
-                }
-                if (!localStorage.getItem('exams')) {
-                    localStorage.setItem('exams', JSON.stringify({}));
-                }
-                if (!localStorage.getItem('results')) {
-                    localStorage.setItem('results', JSON.stringify({}));
-                }
-            },
+        // Firebase configuration - REPLACE WITH YOUR CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzaLns7aRUMB_RjnS6iUKyxwHXfRqmxwg",
+            authDomain: "mcq-exam-generator-e10c7.firebaseapp.com",
+            databaseURL: "https://mcq-exam-generator-e10c7-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "mcq-exam-generator-e10c7",
+            storageBucket: "mcq-exam-generator-e10c7.firebasestorage.app",
+            messagingSenderId: "51613317429",
+            appId: "1:51613317429:web:3e92cc83224d18e320747c"
+        };
 
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Firebase Database operations
+        const Database = {
             // Student operations
-            addStudent(studentData) {
-                const students = JSON.parse(localStorage.getItem('students'));
+            async addStudent(studentData) {
                 const studentId = 'student_' + Date.now();
-                students[studentId] = {
+                await database.ref('students/' + studentId).set({
                     ...studentData,
                     id: studentId,
                     createdAt: Date.now()
-                };
-                localStorage.setItem('students', JSON.stringify(students));
+                });
                 return studentId;
             },
 
-            getStudents() {
-                return JSON.parse(localStorage.getItem('students'));
+            async getStudents() {
+                const snapshot = await database.ref('students').once('value');
+                return snapshot.val() || {};
             },
 
-            deleteStudent(studentId) {
-                const students = JSON.parse(localStorage.getItem('students'));
-                delete students[studentId];
-                localStorage.setItem('students', JSON.stringify(students));
+            async deleteStudent(studentId) {
+                await database.ref('students/' + studentId).remove();
             },
 
             // Exam operations
-            addExam(examData) {
-                const exams = JSON.parse(localStorage.getItem('exams'));
+            async addExam(examData) {
                 const examId = 'exam_' + Date.now();
-                exams[examId] = {
+                await database.ref('exams/' + examId).set({
                     ...examData,
                     id: examId,
                     createdAt: Date.now()
-                };
-                localStorage.setItem('exams', JSON.stringify(exams));
+                });
                 return examId;
             },
 
-            getExams() {
-                return JSON.parse(localStorage.getItem('exams'));
+            async getExams() {
+                const snapshot = await database.ref('exams').once('value');
+                return snapshot.val() || {};
             },
 
-            getExam(examId) {
-                const exams = JSON.parse(localStorage.getItem('exams'));
-                return exams[examId];
+            async getExam(examId) {
+                const snapshot = await database.ref('exams/' + examId).once('value');
+                return snapshot.val();
             },
 
-            deleteExam(examId) {
-                const exams = JSON.parse(localStorage.getItem('exams'));
-                delete exams[examId];
-                localStorage.setItem('exams', JSON.stringify(exams));
+            async deleteExam(examId) {
+                await database.ref('exams/' + examId).remove();
             },
 
             // Result operations
-            addResult(resultData) {
-                const results = JSON.parse(localStorage.getItem('results'));
+            async addResult(resultData) {
                 const resultId = 'result_' + Date.now();
-                results[resultId] = {
+                await database.ref('results/' + resultId).set({
                     ...resultData,
                     id: resultId,
                     submittedAt: Date.now()
-                };
-                localStorage.setItem('results', JSON.stringify(results));
+                });
                 return resultId;
             },
 
-            getResults() {
-                return JSON.parse(localStorage.getItem('results'));
+            async getResults() {
+                const snapshot = await database.ref('results').once('value');
+                return snapshot.val() || {};
             },
 
-            getStudentResults(studentId) {
-                const results = JSON.parse(localStorage.getItem('results'));
+            async getStudentResults(studentId) {
+                const snapshot = await database.ref('results').once('value');
+                const results = snapshot.val() || {};
                 return Object.values(results).filter(result => result.studentId === studentId);
             },
 
-            deleteResult(resultId) {
-                const results = JSON.parse(localStorage.getItem('results'));
-                delete results[resultId];
-                localStorage.setItem('results', JSON.stringify(results));
+            async deleteResult(resultId) {
+                await database.ref('results/' + resultId).remove();
             }
         };
-
-        // Initialize database
-        Database.init();
 
         // DOM Elements
         const adminLoginBtn = document.getElementById('adminLoginBtn');
@@ -937,11 +931,11 @@
             }
         }
 
-        function studentLogin() {
+        async function studentLogin() {
             const username = document.getElementById('studentUsername').value;
             const password = document.getElementById('studentPassword').value;
             
-            const students = Database.getStudents();
+            const students = await Database.getStudents();
             const student = Object.values(students).find(s => s.username === username);
             
             if (student && student.password === password) {
@@ -1002,7 +996,7 @@
         }
 
         // Student management functions
-        function addStudent() {
+        async function addStudent() {
             const name = document.getElementById('studentName').value;
             const username = document.getElementById('newStudentUsername').value;
             const password = document.getElementById('newStudentPassword').value;
@@ -1012,7 +1006,7 @@
                 return;
             }
             
-            const students = Database.getStudents();
+            const students = await Database.getStudents();
             const existingStudent = Object.values(students).find(s => s.username === username);
             
             if (existingStudent) {
@@ -1020,7 +1014,7 @@
                 return;
             }
             
-            Database.addStudent({
+            await Database.addStudent({
                 name: name,
                 username: username,
                 password: password,
@@ -1034,8 +1028,8 @@
             loadStudents();
         }
 
-        function loadStudents() {
-            const students = Database.getStudents();
+        async function loadStudents() {
+            const students = await Database.getStudents();
             const studentsList = document.getElementById('studentsList');
             const studentsForExam = document.getElementById('studentsForExam');
             
@@ -1082,8 +1076,8 @@
             });
         }
 
-        function deleteStudent(studentId) {
-            Database.deleteStudent(studentId);
+        async function deleteStudent(studentId) {
+            await Database.deleteStudent(studentId);
             showConfirmation('Student Deleted Successfully!', 'Student has been deleted successfully.');
             loadStudents();
         }
@@ -1261,7 +1255,7 @@
             });
         }
 
-        function finishExam() {
+        async function finishExam() {
             const examTitle = document.getElementById('examTitle').value;
             const examDescription = document.getElementById('examDescription').value;
             const timeLimit = parseInt(document.getElementById('examTimeLimit').value);
@@ -1288,7 +1282,7 @@
                 return;
             }
             
-            Database.addExam({
+            await Database.addExam({
                 title: examTitle,
                 description: examDescription,
                 timeLimit: timeLimit,
@@ -1359,9 +1353,9 @@
         }
 
         // FIXED: Exam taking functions - CORRECTED VERSION
-        function loadAvailableExams() {
-            const exams = Database.getExams();
-            const results = Database.getResults();
+        async function loadAvailableExams() {
+            const exams = await Database.getExams();
+            const results = await Database.getResults();
             const examsList = document.getElementById('studentExamsList');
             examsList.innerHTML = '';
             
@@ -1440,8 +1434,8 @@
             });
         }
 
-        function startExam(examId) {
-            const exam = Database.getExam(examId);
+        async function startExam(examId) {
+            const exam = await Database.getExam(examId);
             if (exam) {
                 currentExam = exam;
                 currentExamId = examId;
@@ -1466,13 +1460,13 @@
             }
         }
 
-        function viewExamQuestions(examId) {
-            const exam = Database.getExam(examId);
+        async function viewExamQuestions(examId) {
+            const exam = await Database.getExam(examId);
             if (exam) {
                 currentExam = exam;
                 currentQuestions = exam.questions;
                 
-                const results = Database.getStudentResults(currentUser.uid);
+                const results = await Database.getStudentResults(currentUser.uid);
                 const result = results.find(r => r.examId === examId);
                 
                 if (result) {
@@ -1590,7 +1584,7 @@
             renderMath(container);
         }
 
-        function submitExam() {
+        async function submitExam() {
             if (examSubmitted) {
                 alert('Exam already submitted!');
                 return;
@@ -1632,7 +1626,7 @@
                 // For CQ questions, we don't auto-score, just record the answer
             });
             
-            Database.addResult({
+            await Database.addResult({
                 examId: currentExamId,
                 examTitle: currentExam.title,
                 studentId: currentUser.uid,
@@ -1722,8 +1716,8 @@
         }
 
         // Admin functions
-        function loadAdminExams() {
-            const exams = Database.getExams();
+        async function loadAdminExams() {
+            const exams = await Database.getExams();
             const examsList = document.getElementById('adminExamsList');
             examsList.innerHTML = '';
             
@@ -1767,11 +1761,11 @@
             });
         }
 
-        function deleteExam(examId) {
-            Database.deleteExam(examId);
+        async function deleteExam(examId) {
+            await Database.deleteExam(examId);
             
             // Also delete related results
-            const results = Database.getResults();
+            const results = await Database.getResults();
             Object.keys(results).forEach(resultId => {
                 if (results[resultId].examId === examId) {
                     Database.deleteResult(resultId);
@@ -1782,8 +1776,8 @@
             loadAdminExams();
         }
 
-        function loadAllResults() {
-            const results = Database.getResults();
+        async function loadAllResults() {
+            const results = await Database.getResults();
             const resultsList = document.getElementById('resultsList');
             resultsList.innerHTML = '';
             
@@ -1818,14 +1812,14 @@
             });
         }
 
-        function deleteResult(resultId) {
-            Database.deleteResult(resultId);
+        async function deleteResult(resultId) {
+            await Database.deleteResult(resultId);
             showConfirmation('Result Deleted Successfully!', 'Result has been deleted successfully.');
             loadAllResults();
         }
 
-        function loadStudentResults() {
-            const results = Database.getStudentResults(currentUser.uid);
+        async function loadStudentResults() {
+            const results = await Database.getStudentResults(currentUser.uid);
             const resultsList = document.getElementById('studentResultsList');
             resultsList.innerHTML = '';
             
@@ -1864,12 +1858,12 @@
             });
         }
 
-        function viewResultDetails(resultId) {
-            const results = Database.getResults();
+        async function viewResultDetails(resultId) {
+            const results = await Database.getResults();
             const result = results[resultId];
             
             if (result) {
-                const exam = Database.getExam(result.examId);
+                const exam = await Database.getExam(result.examId);
                 if (exam) {
                     currentExam = exam;
                     currentQuestions = exam.questions;
